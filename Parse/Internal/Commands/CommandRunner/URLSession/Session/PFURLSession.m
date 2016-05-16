@@ -215,7 +215,7 @@ typedef void (^PFURLSessionTaskCompletionHandler)(NSData *data, NSURLResponse *r
     SecTrustRef serverTrust = challenge.protectionSpace.serverTrust;
     SecCertificateRef certificate = SecTrustGetCertificateAtIndex(serverTrust, 0);
     NSData *remoteCertificateData = CFBridgingRelease(SecCertificateCopyData(certificate));
-    NSString *cerPath = [[NSBundle mainBundle] pathForResource:@"ParseCertificate" ofType:@"cer"];
+    NSString *cerPath = [[NSBundle mainBundle] pathForResource:@"ParseCertificate" ofType:@"crt"];
     NSData *localCertData = [NSData dataWithContentsOfFile:cerPath];
 
     if ([remoteCertificateData isEqualToData:localCertData]) {
