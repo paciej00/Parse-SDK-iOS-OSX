@@ -212,20 +212,39 @@ typedef void (^PFURLSessionTaskCompletionHandler)(NSData *data, NSURLResponse *r
 }
 
 - (void)URLSession:(NSURLSession *)session didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition, NSURLCredential *))completionHandler {
-    SecTrustRef serverTrust = challenge.protectionSpace.serverTrust;
-    SecCertificateRef certificate = SecTrustGetCertificateAtIndex(serverTrust, 0);
-    NSData *remoteCertificateData = CFBridgingRelease(SecCertificateCopyData(certificate));
-    NSString *cerPath = [[NSBundle mainBundle] pathForResource:@"ParseCertificate" ofType:@"crt"];
-    NSData *localCertData = [NSData dataWithContentsOfFile:cerPath];
 
-    if ([remoteCertificateData isEqualToData:localCertData]) {
-        NSURLCredential *credential = [NSURLCredential credentialForTrust:serverTrust];
-        [[challenge sender] useCredential:credential forAuthenticationChallenge:challenge];
-        completionHandler(NSURLSessionAuthChallengeUseCredential, credential);
-    } else {
-        [[challenge sender] cancelAuthenticationChallenge:challenge];
-        completionHandler(NSURLSessionAuthChallengeRejectProtectionSpace, nil);
+    if(challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust) {
+
+        SecTrustRef serverTrust = challenge.protectionSpace.serverTrust;
+        SecKeyRef serverKey = SecTrustCopyPublicKey(serverTrust);
+
+        //1. Load certificate from main bundle
+        NSString *certPath = [[NSBundle mainBundle] pathForResource:@"ParseCertificate" ofType:@"der"];
+        //2. Get the contents of the certificate and load to NSData
+        NSData *certData = [NSData dataWithContentsOfFile:certPath];
+        //3. Get CFDataRef of the certificate data
+        CFDataRef certDataRef = (__bridge CFDataRef)certData;
+        //4. Create certificate with the data
+        SecCertificateRef certificateRef = SecCertificateCreateWithData(NULL, certDataRef);
+        //5. Returns a policy object for the default X.509 policy
+        SecPolicyRef policyRef = SecPolicyCreateBasicX509();
+
+        SecTrustRef localTrust = NULL;
+        SecKeyRef localKey = NULL;
+
+        if (policyRef && SecTrustCreateWithCertificates((CFTypeRef)certificateRef, policyRef, &localTrust) == noErr) {
+            SecTrustResultType result = NULL;
+            if (SecTrustEvaluate(localTrust, &result) == noErr) {
+                //6. Returns the public key for a leaf certificate after it has been evaluated.
+                localKey = SecTrustCopyPublicKey(localTrust);
+                if ([((__bridge id)serverKey) isEqual:((__bridge id)localKey)]) {
+                    completionHandler(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust:serverTrust]);
+                    return;
+                }
+            }
+        }
     }
+    completionHandler(NSURLSessionAuthChallengeCancelAuthenticationChallenge, nil);
 }
 
 ///--------------------------------------
