@@ -53,7 +53,8 @@ typedef void (^PFURLSessionTaskCompletionHandler)(NSData *data, NSURLResponse *r
 
     _delegate = delegate;
     _urlSession = session;
-
+    _urlSession.delegate = self;
+    
     _sessionTaskQueue = dispatch_queue_create("com.parse.urlSession.tasks", DISPATCH_QUEUE_SERIAL);
 
     _delegatesDictionary = [NSMutableDictionary dictionary];
@@ -209,6 +210,23 @@ typedef void (^PFURLSessionTaskCompletionHandler)(NSData *data, NSURLResponse *r
     dispatch_barrier_async(_delegatesAccessQueue, ^{
         [_delegatesDictionary removeObjectForKey:identifier];
     });
+}
+
+- (void)URLSession:(NSURLSession *)session didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition, NSURLCredential *))completionHandler {
+    SecTrustRef serverTrust = challenge.protectionSpace.serverTrust;
+    SecCertificateRef certificate = SecTrustGetCertificateAtIndex(serverTrust, 0);
+    NSData *remoteCertificateData = CFBridgingRelease(SecCertificateCopyData(certificate));
+    NSString *cerPath = [[NSBundle mainBundle] pathForResource:@"ParseCertificate" ofType:@"cer"];
+    NSData *localCertData = [NSData dataWithContentsOfFile:cerPath];
+
+    if ([remoteCertificateData isEqualToData:localCertData]) {
+        NSURLCredential *credential = [NSURLCredential credentialForTrust:serverTrust];
+        [[challenge sender] useCredential:credential forAuthenticationChallenge:challenge];
+        completionHandler(NSURLSessionAuthChallengeUseCredential, credential);
+    } else {
+        [[challenge sender] cancelAuthenticationChallenge:challenge];
+        completionHandler(NSURLSessionAuthChallengeRejectProtectionSpace, nil);
+    }
 }
 
 ///--------------------------------------
