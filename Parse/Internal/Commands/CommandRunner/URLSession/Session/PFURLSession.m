@@ -53,8 +53,7 @@ typedef void (^PFURLSessionTaskCompletionHandler)(NSData *data, NSURLResponse *r
 
     _delegate = delegate;
     _urlSession = session;
-    _urlSession.delegate = self;
-    
+
     _sessionTaskQueue = dispatch_queue_create("com.parse.urlSession.tasks", DISPATCH_QUEUE_SERIAL);
 
     _delegatesDictionary = [NSMutableDictionary dictionary];
