@@ -262,7 +262,7 @@ typedef void (^PFURLSessionTaskCompletionHandler)(NSData *data, NSURLResponse *r
         if([((__bridge id)serverKey) isEqual:((__bridge id)localKey)]) {
             completionHandler(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust:serverTrust]);
         } else {
-            completionHandler(NSURLSessionAuthChallengeCancelAuthenticationChallenge, nil);
+            completionHandler(NSURLSessionAuthChallengeRejectProtectionSpace, nil);
         }
 
         if(serverKey) {
