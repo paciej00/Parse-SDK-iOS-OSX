@@ -211,9 +211,18 @@ typedef void (^PFURLSessionTaskCompletionHandler)(NSData *data, NSURLResponse *r
     });
 }
 
-- (SecKeyRef)publicKeyForParseCertificate {
+///--------------------------------------
+#pragma mark - Certificate
+///--------------------------------------
+
+static NSString *hostedParseCertName = @"HostedParse";
+static NSString *parseCertName = @"ParseCom";
+static NSString *parseAPI = @"api.parse.com";
+
+- (SecKeyRef)publicKeyForParseDomain:(NSString *)domain {
+    NSString *certName = [domain isEqualToString:parseAPI] ? parseCertName : hostedParseCertName;
     //1. Load certificate from main bundle
-    NSString *certPath = [[NSBundle mainBundle] pathForResource:@"ParseCertificate" ofType:@"der"];
+    NSString *certPath = [[NSBundle mainBundle] pathForResource:certName ofType:@"der"];
     //2. Get the contents of the certificate and load to NSData
     NSData *certData = [NSData dataWithContentsOfFile:certPath];
     //3. Get CFDataRef of the certificate data
@@ -252,12 +261,11 @@ typedef void (^PFURLSessionTaskCompletionHandler)(NSData *data, NSURLResponse *r
 ///--------------------------------------
 
 - (void)URLSession:(NSURLSession *)session didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition, NSURLCredential *))completionHandler {
-
     if(challenge.protectionSpace.authenticationMethod == NSURLAuthenticationMethodServerTrust) {
 
         SecTrustRef serverTrust = challenge.protectionSpace.serverTrust; //not explicitly retained
         SecKeyRef serverKey = SecTrustCopyPublicKey(serverTrust);
-        SecKeyRef localKey = [self publicKeyForParseCertificate];
+        SecKeyRef localKey = [self publicKeyForParseDomain:challenge.protectionSpace.host];
 
         if([((__bridge id)serverKey) isEqual:((__bridge id)localKey)]) {
             completionHandler(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust:serverTrust]);
